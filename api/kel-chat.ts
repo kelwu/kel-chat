@@ -33,7 +33,7 @@ const kel_kb = [
     title: "Product by Kel – YouTube & Instagram",
     url: "https://youtube.com/@productbykel",
     content:
-      "Brand covering AI product builds, no/low-code tutorials, and PM lessons. Demos with GPTs, MidJourney, Replit, Zapier, Creatomate, and strategy breakdowns."
+      "Brand covering AI product builds, no/low-code tutorials, and PM lessons. Demos with GPTs, Lovable, Nano Banana, Zapier, Creatomate, and strategy breakdowns."
   },
   {
     id: "dj",
