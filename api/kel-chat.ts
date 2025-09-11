@@ -1,54 +1,106 @@
 // api/kel-chat.ts
-// Edge function + RAG + guardrails for hostile/off-topic queries
+// Edge function + RAG + guardrails + HARD PRE-FILTER (no-LLM short-circuit)
 
 export const config = { runtime: "edge" };
 declare const process: any;
 
 /* ------------------------------ KNOWLEDGE BASE ------------------------------ */
+/* TIP: Enrich these items over time. Keep each concise, factual, and include a URL for citing. */
 const kel_kb = [
   {
     id: "summary",
     title: "Professional Summary",
     url: "https://www.linkedin.com/in/kelwu/",
     content:
-      "Product leader with 6+ years of experience driving SaaS, digital marketing, e-commerce, and creator economy growth. Known for user-first discovery, data-driven decision-making, and rapid iteration. Public work includes Product by Kel (YouTube), Bay Area Diners Club (IG), and DJ Kelton Banks (SoundCloud)."
+      "Product leader with 6+ years across SaaS, digital marketing, e-commerce, and the creator economy. Blends user-first discovery, data-driven decisions, and rapid iteration. Public work includes Product by Kel (YouTube), Bay Area Diners Club (IG), and DJ Kelton Banks (SoundCloud)."
   },
   {
     id: "philosophy",
     title: "Product Management Philosophy",
     url: "https://kelwu.com/product-management",
     content:
-      "Empathy for users, rigorous discovery, and metrics-driven decisions. Bias for action through MVPs, A/B tests, and continuous learning. Partner closely with design and engineering, define clear PRDs, and measure success with activation, retention, and efficiency KPIs."
+      "Empathy-driven discovery, crisp problem framing, smallest testable solutions, and ship/measure/iterate loops. Metrics: activation, retention, revenue, and efficiency. Partner deeply with Design/Eng; write clear PRDs; instrument analytics; run A/B tests."
   },
   {
     id: "socialnative",
     title: "Senior Product Manager – Social Native",
     url: "https://www.socialnative.com/",
     content:
-      "Launched 0→1 Creator Discovery platform with 20+ filters for 200K creators. Expanded to TikTok/Instagram Paid Ads APIs. Improved Instagram creator onboarding by 15%. Automated Ops & CS workflows, saving 40+ hours/month."
+      "Launched 0→1 Creator Discovery platform (20+ filters; 200K creators). Expanded to TikTok/Instagram Paid Ads APIs (15+ ad metrics). Improved creator onboarding by 15%. Automated Ops/CS flows, saving 40+ hours/month."
   },
   {
     id: "productbykel",
     title: "Product by Kel – YouTube & Instagram",
     url: "https://youtube.com/@productbykel",
     content:
-      "Personal brand sharing AI product builds, no/low-code tutorials, and PM lessons. Covers AI tools (GPTs, MidJourney, Replit, Zapier, Creatomate) and PM strategy."
+      "Brand covering AI product builds, no/low-code tutorials, and PM lessons. Demos with GPTs, MidJourney, Replit, Zapier, Creatomate, and strategy breakdowns."
   },
   {
     id: "dj",
     title: "DJ Kelton Banks",
     url: "https://kelwu.com/djing",
     content:
-      "Performs hip hop, R&B, house, and disco sets. Bookable for events. Shares mixes on SoundCloud."
+      "Performs hip hop, R&B, house, and disco. Bookable for events. Mixes available on SoundCloud. Focus on crowd energy and seamless transitions."
   },
   {
     id: "badc",
     title: "Bay Area Diners Club (Instagram)",
     url: "https://instagram.com/bayareadinersclub",
     content:
-      "Food discovery reels showcasing Bay Area restaurants, tastings, and hidden gems."
+      "Food discovery reels highlighting Bay Area gems, chef collabs, and tastings."
   }
 ];
+
+/* ------------------------------ HARD PRE-FILTER ------------------------------ */
+/* Blocks hostile/off-topic or private/PII requests before hitting OpenAI. */
+const BLOCK_PATTERNS: RegExp[] = [
+  // Hostility/insults targeting Kel
+  /\b(i\s*hate\s*kel)\b/i,
+  /\bkel\s*(sucks|is\s*stupid|is\s*awful|is\s*terrible)\b/i,
+  // Attempts to provoke harassment/abuse
+  /\b(kill|harm)\s+(yourself|him|her|them)\b/i,
+  // Private/PII probes
+  /\b(ssn|social\s*security|home\s*address|phone\s*number|email)\b/i,
+  // Irrelevant sexual or explicit info
+  /\b(nude|explicit\s*photos?)\b/i
+];
+
+function preFilterResponse(userText: string | undefined) {
+  const q = (userText || "").toLowerCase().trim();
+
+  // Empty or very short noise
+  if (!q || q.length < 2) {
+    return {
+      content:
+        "Hi! I’m here to talk about Kel’s work and projects. Try asking about his product philosophy or a recent project case study.",
+      sources: []
+    };
+  }
+
+  // Hard blocklist
+  if (BLOCK_PATTERNS.some(rx => rx.test(q))) {
+    return {
+      content:
+        "I’m here to share Kel’s professional work and projects. If you’d like, I can walk you through his product philosophy or highlight a recent build.",
+      sources: []
+    };
+  }
+
+  // Generic off-topic cues (tweak as you like)
+  const offTopicCues = [
+    "politics", "religion", "celebrity gossip", "personal life details",
+    "private info", "leak", "dox", "address", "phone", "email"
+  ];
+  if (offTopicCues.some(s => q.includes(s))) {
+    return {
+      content:
+        "Let’s keep it focused on Kel’s professional portfolio. Want to hear about his AI experiments or a product case study?",
+      sources: []
+    };
+  }
+
+  return null; // OK to proceed to RAG/LLM
+}
 
 /* ------------------------------ UTILITIES ------------------------------ */
 type KBItem = { id?: string; title?: string; url?: string; content: string };
@@ -85,13 +137,14 @@ async function embed(text: string): Promise<number[]> {
   return res.data[0].embedding;
 }
 
+// Cache embeddings during the Edge runtime
 let kbEmbedsP: Promise<number[][]>|null = null;
 async function getKBEmbeds(): Promise<number[][]> {
   if (!kbEmbedsP) {
     kbEmbedsP = (async()=>{
       const inputs = kel_kb.map(k=>trim([k.title,k.content].filter(Boolean).join("\n\n"),2000));
       const out: number[][] = [];
-      for (const t of inputs) out.push(await embed(t));
+      for (const t of inputs) out.push(await embed(t)); // sequential is fine for small KB
       return out;
     })();
   }
@@ -129,8 +182,17 @@ export default async function handler(req:Request) {
   try {
     const {messages} = (await req.json()) ?? {};
     const user = (Array.isArray(messages) && messages.find((m:any)=>m?.role==="user")?.content) || "";
-    const query = String(user||"Tell me about Kel Wu.").slice(0,2000);
 
+    // 1) HARD PRE-FILTER: short-circuit for hostile/off-topic/PII probes
+    const pre = preFilterResponse(user);
+    if (pre) {
+      return new Response(JSON.stringify(pre), {
+        headers: { "content-type": "application/json", ...headers }
+      });
+    }
+
+    // 2) Proceed with RAG + LLM
+    const query = String(user||"Tell me about Kel Wu.").slice(0,2000);
     const top = await retrieve(query,3);
     const context = top.map((t,i)=>
       `# Source ${i+1}: ${t.item.title||"Untitled"}${t.item.url?` (${t.item.url})`:""}\n${trim(t.item.content,1800)}`
@@ -145,10 +207,10 @@ Purpose:
 - Keep answers concise (2–6 sentences). End with a "Sources:" list of titles/urls used.
 
 Guardrails:
-- If a user is hostile, insulting, or off-topic (e.g., "I hate Kel" or personal/private questions), respond calmly and redirect:
-  Example: "I’m here to share Kel’s work and projects. Would you like to hear about his product philosophy or a project case study?"
+- If a user is hostile, insulting, or off-topic, respond calmly and redirect:
+  Example: "I’m here to share Kel’s work and projects. Would you like his product philosophy or a recent case study?"
 - Never generate harmful, defamatory, or unsafe responses.
-- If asked something outside scope, politely decline and redirect to Kel’s professional work.
+- If asked something outside scope or private, politely decline and redirect to professional topics.
 `.trim();
 
     type ChatRes = { choices: { message:{ content:string } }[] };
