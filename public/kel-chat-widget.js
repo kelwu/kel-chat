@@ -1,16 +1,8 @@
-<script>
-// kel-chat-widget.js
+// kel-chat-widget.js (no <script> wrapper!)
 (function () {
-  /* ---------- tiny helpers ---------- */
-  function el(tag, cls) {
-    const n = document.createElement(tag);
-    if (cls) n.className = cls;
-    return n;
-  }
+  function el(tag, cls) { const n = document.createElement(tag); if (cls) n.className = cls; return n; }
 
-  /* ---------- styles ---------- */
-  function css() {
-    return `
+  function css() { return `
 .kel-fab{
   position:fixed;right:16px;bottom:16px;z-index:99999;
   background:#06b6d4;color:#000;border-radius:999px;
@@ -35,9 +27,7 @@
   font-weight:700;text-decoration:none;display:inline-block
 }
 .kel-chip:hover{background:#0ea5e9}
-.kel-input{
-  display:flex;gap:8px;border-top:1px solid rgba(255,255,255,.08);padding:8px 12px
-}
+.kel-input{display:flex;gap:8px;border-top:1px solid rgba(255,255,255,.08);padding:8px 12px}
 .kel-input input{
   flex:1;border:none;background:rgba(255,255,255,.06);color:#e6eefc;border-radius:8px;padding:8px;
   font-size:14px;outline:none
@@ -45,8 +35,7 @@
 .kel-input button{
   background:#06b6d4;color:#000;border:none;border-radius:8px;padding:8px 10px;font-weight:700;cursor:pointer
 }
-
-/* Spinner (animated dots) */
+/* Spinner */
 .kel-spinner{display:inline-flex;align-items:center;gap:6px}
 .kel-dot{
   width:6px;height:6px;border-radius:50%;background:#cbd5e1;opacity:.6;
@@ -60,7 +49,6 @@
 }
 `; }
 
-  /* ---------- panel template ---------- */
   function panelHTML() {
     return `
       <style>${css()}</style>
@@ -76,17 +64,15 @@
       </form>`;
   }
 
-  /* ---------- message bubble ---------- */
   function renderMsg(text, role, sources) {
     const wrap = el("div", "kel-msg " + (role === "user" ? "user" : ""));
     if (text) wrap.textContent = text;
-
     if (Array.isArray(sources) && sources.length) {
       const srcs = el("div", "kel-srcs");
       sources.forEach((s) => {
         const a = el("a", "kel-chip");
         a.textContent = s.title || "Source";
-        if (s.url) { a.href = s.url; a.target = "_blank"; rel="noopener"; }
+        if (s.url) { a.href = s.url; a.target = "_blank"; }
         srcs.appendChild(a);
       });
       wrap.appendChild(srcs);
@@ -94,73 +80,52 @@
     return wrap;
   }
 
-  /* ---------- main entry ---------- */
   function init({ api, starters = [] } = {}) {
-    if (!api) { console.warn("KelChat: missing `api` URL"); }
+    if (!api) console.warn("KelChat: missing `api` URL");
 
-    const fab = el("button", "kel-fab");
-    fab.textContent = "Chat";
-    const panel = el("div", "kel-panel");
-    panel.style.display = "none";
-    panel.innerHTML = panelHTML();
-
-    document.body.appendChild(fab);
-    document.body.appendChild(panel);
+    const fab = el("button", "kel-fab"); fab.textContent = "Chat";
+    const panel = el("div", "kel-panel"); panel.style.display = "none"; panel.innerHTML = panelHTML();
+    document.body.appendChild(fab); document.body.appendChild(panel);
 
     const body  = panel.querySelector("#kel-body");
     const form  = panel.querySelector("#kel-form");
     const input = panel.querySelector("#kel-input");
     const close = panel.querySelector("#kel-close");
 
-    // Welcome
-    body.appendChild(
-      renderMsg("Hey! I’m Kel’s AI assistant. Ask about projects, product philosophy, or side ventures.", "assistant")
-    );
+    body.appendChild(renderMsg(
+      "Hey! I’m Kel’s AI assistant. Ask about projects, product philosophy, or side ventures.",
+      "assistant"
+    ));
 
-    // Starter chips
     if (starters.length) {
-      const chips = el("div");
-      chips.style.padding = "0 12px 8px";
+      const chips = el("div"); chips.style.padding = "0 12px 8px";
       starters.forEach((s) => {
-        const b = el("button");
-        b.type = "button";
-        b.textContent = s;
-        b.style.cssText =
-          "margin:4px 6px 0 0;font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.15);background:transparent;color:#e6eefc;cursor:pointer";
-        b.onclick = () => {
-          input.value = s;
-          form.dispatchEvent(new Event("submit", { cancelable: true }));
-        };
+        const b = el("button"); b.type = "button"; b.textContent = s;
+        b.style.cssText="margin:4px 6px 0 0;font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.15);background:transparent;color:#e6eefc;cursor:pointer";
+        b.onclick = () => { input.value = s; form.dispatchEvent(new Event("submit",{cancelable:true})); };
         chips.appendChild(b);
       });
       body.appendChild(chips);
     }
 
-    // Open/close
     fab.onclick   = () => { panel.style.display = "block"; input.focus(); };
     close.onclick = () => { panel.style.display = "none"; };
 
-    // Submit + spinner
     form.onsubmit = (e) => {
       e.preventDefault();
       const text = (input.value || "").trim();
       if (!text) return;
 
-      // Echo user message
       body.appendChild(renderMsg(text, "user"));
       input.value = "";
       body.scrollTop = body.scrollHeight;
 
-      // Add spinner as a temporary assistant message
       const loader = renderMsg("", "assistant");
       loader.id = "kel-loader";
       const spin = document.createElement("div");
       spin.className = "kel-spinner";
-      spin.setAttribute("aria-live", "polite");
-      spin.innerHTML = `
-        <span class="kel-dot"></span>
-        <span class="kel-dot"></span>
-        <span class="kel-dot"></span>`;
+      spin.setAttribute("aria-live","polite");
+      spin.innerHTML = `<span class="kel-dot"></span><span class="kel-dot"></span><span class="kel-dot"></span>`;
       loader.appendChild(spin);
       body.appendChild(loader);
       body.scrollTop = body.scrollHeight;
@@ -172,26 +137,16 @@
       })
         .then((r) => r.json())
         .then((j) => {
-          const l = document.getElementById("kel-loader");
-          if (l) l.remove();
-          body.appendChild(
-            renderMsg(
-              j && j.content ? j.content : "Sorry, something went wrong.",
-              "assistant",
-              (j && j.sources) || []
-            )
-          );
+          const l = document.getElementById("kel-loader"); if (l) l.remove();
+          body.appendChild(renderMsg(j?.content || "Sorry, something went wrong.", "assistant", j?.sources || []));
           body.scrollTop = body.scrollHeight;
         })
         .catch(() => {
-          const l = document.getElementById("kel-loader");
-          if (l) l.remove();
+          const l = document.getElementById("kel-loader"); if (l) l.remove();
           body.appendChild(renderMsg("Hmm, something went wrong. Try again?", "assistant"));
         });
     };
   }
 
-  /* expose */
   window.KelChat = { init };
 })();
-</script>
