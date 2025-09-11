@@ -1,0 +1,11 @@
+{
+  "name": "kel-chat",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Vercel builds functions on deploy'",
+    "start": "vercel dev"
+  },
+  "dependencies": {}
+}
