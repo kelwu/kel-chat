@@ -1,0 +1,17 @@
+{
+  "functions": {
+    "api/kel-chat.ts": {
+      "runtime": "edge"
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/kel-chat",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "https://kelwu.com" },
+        { "key": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
+      ]
+    }
+  ]
+}
