@@ -1,23 +1,6 @@
-// api/kel-chat.ts
-
-export const config = { runtime: "edge" };
-
-export default async function handler(req: Request) {
-  if (req.method === "POST") {
-    const body = await req.json().catch(() => ({}));
-
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        echo: body,
-        msg: "API route is working 🚀"
-      }),
-      {
-        headers: { "content-type": "application/json" }
-      }
-    );
-  }
-
-  return new Response("Method Not Allowed", { status: 405 });
-}
-
+// src/data/kel_kb.ts
+export const kel_kb = [
+  { id: "p1", title: "Product Philosophy", url: "https://kelwu.com/product-management", content: "Kel’s PM philosophy…"},
+  { id: "p2", title: "Background Removal Tool", url: "https://…", content: "Project summary…"}
+  // add more items…
+];
