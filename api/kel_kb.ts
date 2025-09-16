@@ -64,6 +64,13 @@ const kel_kb = [
     content:
       "Instructor on AI Product Management. Teach PMs how to leverage AI/ML in discovery, prototyping, and scaling. Developed coursework on LLMs, no-code agents, and marketplace builds. Emphasize bridging strategy with execution."
   },
+   {
+    id: "bjj",
+    title: "Brazilian Jiu-Jitsu",
+    url: "https://kelwu.com/djing",
+    content:
+      "Trains in Brazilian Jiu-Jitsu. Currently a purple belt."
+  },
   {
     id: "dj",
     title: "DJ Kelton Banks",
