@@ -1,15 +1,15 @@
 // api/kel-chat.ts
-// Single-file Edge function with CORS + inlined retriever + KB.
+// Edge function with CORS, topic-aware retrieval (PM vs BJJ), and direct BJJ belt guard.
 
 export const config = { runtime: "edge" };
 declare const process: any;
 
-/* ------------------------------ CORS ---------------------------------- */
+/* -------------------------------- CORS ---------------------------------- */
 const ALLOW_ORIGINS = [
   "https://kelwu.com",
   "https://www.kelwu.com",
   "http://localhost:3000",
-  "http://localhost:5173"
+  "http://localhost:5173",
 ];
 
 function corsHeaders(req: Request) {
@@ -17,7 +17,7 @@ function corsHeaders(req: Request) {
   const allowed = ALLOW_ORIGINS.includes(origin) ? origin : ALLOW_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allowed,
-    "Vary": "Origin",
+    Vary: "Origin",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "content-type",
     "Access-Control-Max-Age": "86400",
@@ -36,7 +36,7 @@ function withCors(body: BodyInit | null, init: ResponseInit = {}, req?: Request)
   });
 }
 
-/* ----------------------------- KNOWLEDGE BASE ----------------------------- */
+/* ----------------------------- KNOWLEDGE BASE ---------------------------- */
 type KBItem = { id: string; title: string; text: string; url?: string };
 
 const kelKB: KBItem[] = [
@@ -48,14 +48,14 @@ const kelKB: KBItem[] = [
       "Kel Wu is a product leader and AI experimentalist with 6+ years of experience across SaaS, digital marketing, " +
       "e-commerce, and the creator economy. In December 2024, he wrapped up his role at Social Native. " +
       "In 2025 he is focused on building AI/LLM prototypes, retrieval-augmented assistants, and public content for 'Product by Kel'. " +
-      "He blends product strategy, rapid prototyping, and hands-on implementation (React, TypeScript, Vercel Edge, Tailwind, shadcn/ui)."
+      "He blends product strategy, rapid prototyping, and hands-on implementation (React, TypeScript, Vercel Edge, Tailwind, shadcn/ui).",
   },
   {
     id: "routes",
     title: "Site Routes",
     text:
       "Site routes include: / (home), /product-management, /portfolio, /portfolio/:slug, /product-by-kel, /bjj, /djing. " +
-      "The site is a React + Vite + Tailwind build with shadcn/ui, hosted as a personal portfolio and knowledge hub."
+      "The site is a React + Vite + Tailwind build with shadcn/ui, hosted as a personal portfolio and knowledge hub.",
   },
   {
     id: "pm-philosophy",
@@ -65,7 +65,7 @@ const kelKB: KBItem[] = [
       "PM principles: user-centric discovery; data-driven validation and A/B testing; pragmatic innovation using AI; " +
       "agile iteration with tight feedback loops. Cross-functional collaboration with Design (journeys, prototypes), " +
       "Engineering (feasibility, system design, sprints), and Business (market analysis, GTM). " +
-      "Typical lifecycle: Discovery → Definition → Development → Delivery."
+      "Typical lifecycle: Discovery → Definition → Development → Delivery.",
   },
   {
     id: "project-ai-rag",
@@ -75,7 +75,7 @@ const kelKB: KBItem[] = [
       "A 24/7 portfolio assistant built with Retrieval-Augmented Generation. " +
       "Stack: Vercel Edge Function (TypeScript), OpenAI responses grounded by a custom knowledge base, " +
       "and a lightweight embeddable JS widget. Features: source chips with links, guardrails for off-topic/hostile prompts, " +
-      "recency-aware filtering (e.g., post-2024 role), and a 'thinking' indicator for UX."
+      "recency-aware filtering (e.g., post-2024 role), and a 'thinking' indicator for UX.",
   },
   {
     id: "project-gardengather",
@@ -84,7 +84,7 @@ const kelKB: KBItem[] = [
     text:
       "Community marketplace connecting gardeners, florists, and neighbors to sell or share surplus greenery. " +
       "Role: product strategy, UX, and prototype delivery. " +
-      "Highlights: responsive gallery, listings, and guided tours; experimentation with local discovery and HCI patterns."
+      "Highlights: responsive gallery, listings, and guided tours; experimentation with local discovery and HCI patterns.",
   },
   {
     id: "project-neptune",
@@ -92,7 +92,7 @@ const kelKB: KBItem[] = [
     url: "/portfolio/neptune",
     text:
       "Concept and implementation for a real-time analytics dashboard focused on retail campaigns and brand pages. " +
-      "Emphasis on actionable insight layout, data visualization, and scalable component architecture."
+      "Emphasis on actionable insight layout, data visualization, and scalable component architecture.",
   },
   {
     id: "brand-product-by-kel",
@@ -101,7 +101,7 @@ const kelKB: KBItem[] = [
     text:
       "Public brand focused on AI, no/low-code, and product craft. " +
       "Publishes walkthroughs, prototypes, and practical PM content. " +
-      "Common topics: RAG patterns, prompt design, rapid validation, and real-world product workflows."
+      "Common topics: RAG patterns, prompt design, rapid validation, and real-world product workflows.",
   },
   {
     id: "beyond-food",
@@ -109,7 +109,7 @@ const kelKB: KBItem[] = [
     url: "/",
     text:
       "Food discovery content featuring local bites around the Bay Area. " +
-      "Short-form reels and curated finds are highlighted in the 'Beyond Product' section of the portfolio."
+      "Short-form reels and curated finds are highlighted in the 'Beyond Product' section of the portfolio.",
   },
   {
     id: "dj-kelton-banks",
@@ -117,7 +117,7 @@ const kelKB: KBItem[] = [
     url: "/djing",
     text:
       "DJ persona with mixes across hip hop, R&B, house, and disco. " +
-      "The DJing page includes embedded mixes and a booking form with validation powered by React Hook Form + Zod."
+      "The DJing page includes embedded mixes and a booking form with validation powered by React Hook Form + Zod.",
   },
   {
     id: "bjj-overview",
@@ -127,7 +127,7 @@ const kelKB: KBItem[] = [
       "Kel trains Brazilian Jiu-Jitsu and is currently a purple belt. " +
       "Core principles in his practice: humility (embrace beginner’s mind), problem-solving (position before submission), " +
       "perseverance (progress over perfection), and community (helping teammates grow). " +
-      "He draws parallels between BJJ and product: situational awareness, small iterative advantages, and calm under pressure."
+      "He draws parallels between BJJ and product: situational awareness, small iterative advantages, and calm under pressure.",
   },
   {
     id: "skills",
@@ -137,7 +137,7 @@ const kelKB: KBItem[] = [
       "AI/LLM prototyping (RAG, prompt design, guardrails); " +
       "Frontend: React, TypeScript, Vite, Tailwind, shadcn/ui; " +
       "APIs & Hosting: Vercel Edge Functions; Forms: React Hook Form + Zod; " +
-      "Data viz and dashboard UX; Content creation and technical storytelling."
+      "Data viz and dashboard UX; Content creation and technical storytelling.",
   },
   {
     id: "recent-status-2025",
@@ -146,7 +146,7 @@ const kelKB: KBItem[] = [
       "Kel concluded his time at Social Native in December 2024. " +
       "In 2025 he is independent and focused on AI product experiments, " +
       "RAG assistants, and educational content under 'Product by Kel'. " +
-      "He collaborates with teams on strategy sprints, prototypes, and AI integrations."
+      "He collaborates with teams on strategy sprints, prototypes, and AI integrations.",
   },
   {
     id: "resume-socialnative",
@@ -154,7 +154,7 @@ const kelKB: KBItem[] = [
     text:
       "Led product for creator onboarding and launched Creator Discovery from 0→1. " +
       "Delivered DM for Rights, TikTok/Instagram paid metrics, and self-serve flows that improved transparency. " +
-      "Partnered with Data Science and Engineering to build AI-driven creator sourcing."
+      "Partnered with Data Science and Engineering to build AI-driven creator sourcing.",
   },
   {
     id: "resume-neptune",
@@ -162,7 +162,7 @@ const kelKB: KBItem[] = [
     text:
       "Owned a 6-product digital promotions portfolio. " +
       "Shipped CMS for enhanced brand pages that reduced manual work and scaled campaign delivery. " +
-      "Built rebate platform to improve redemption UX, raising rates above industry average."
+      "Built rebate platform to improve redemption UX, raising rates above industry average.",
   },
   {
     id: "resume-tango",
@@ -170,7 +170,7 @@ const kelKB: KBItem[] = [
     text:
       "Analyzed 700+ sales calls to identify customer journey friction. " +
       "Drove roadmap changes to onboarding and reporting. " +
-      "Created insights presentations and taxonomy for leadership, aligning product with market needs."
+      "Created insights presentations and taxonomy for leadership, aligning product with market needs.",
   },
   {
     id: "design-system",
@@ -178,7 +178,7 @@ const kelKB: KBItem[] = [
     text:
       "Design: dark tech palette with cyan/purple accents, gradient headings, soft glows. " +
       "Stack: React 18 + Vite, TypeScript, Tailwind CSS, shadcn/ui, Lucide icons, React Hook Form + Zod, " +
-      "React Router v6. The site uses component-driven architecture and semantic HTML."
+      "React Router v6. The site uses component-driven architecture and semantic HTML.",
   },
   {
     id: "portfolio-summary",
@@ -186,7 +186,7 @@ const kelKB: KBItem[] = [
     url: "/portfolio",
     text:
       "The portfolio showcases project cards with status (Active, Completed, In Progress), " +
-      "tech stack tags (AI/ML, E-commerce, Analytics), and deep-dive project pages with specs, galleries, and learnings."
+      "tech stack tags (AI/ML, E-commerce, Analytics), and deep-dive project pages with specs, galleries, and learnings.",
   },
   {
     id: "ways-of-working",
@@ -194,7 +194,7 @@ const kelKB: KBItem[] = [
     text:
       "Start with crisp problem statements; validate with qualitative + quantitative signals; " +
       "prototype early and often; bias to instrumentation and iteration; " +
-      "partner closely with design/engineering; prefer clear docs, demos, and decision logs."
+      "partner closely with design/engineering; prefer clear docs, demos, and decision logs.",
   },
   {
     id: "guardrails",
@@ -203,11 +203,11 @@ const kelKB: KBItem[] = [
       "The portfolio chatbot enforces friendly tone and deflects hostile/off-topic inputs; " +
       "answers are grounded in the knowledge base with source chips; " +
       "claims avoid 'currently at' language unless the KB explicitly marks a role as current; " +
-      "fallback behavior: ask the user to clarify or view portfolio sources."
-  }
+      "fallback behavior: ask the user to clarify or view portfolio sources.",
+  },
 ];
 
-/* ----------------------------- VECTOR / EMBEDS ----------------------------- */
+/* ----------------------- VECTOR / EMBEDDINGS HELPERS --------------------- */
 const dot = (a: number[], b: number[]) => a.reduce((s, v, i) => s + v * b[i], 0);
 const mag = (a: number[]) => Math.sqrt(dot(a, a));
 const cos = (a: number[], b: number[]) => dot(a, b) / (mag(a) * mag(b) + 1e-9);
@@ -236,7 +236,6 @@ async function embed(texts: string[]): Promise<number[][]> {
 declare global {
   var __kel_embed_cache: { hash: string; vecs: number[][] } | undefined;
 }
-
 async function getKBVecs(): Promise<number[][]> {
   const h = hashKB(kelKB);
   if (globalThis.__kel_embed_cache?.hash === h) return globalThis.__kel_embed_cache.vecs;
@@ -245,36 +244,87 @@ async function getKBVecs(): Promise<number[][]> {
   return vecs;
 }
 
-/* ----------------------------- RETRIEVER ----------------------------- */
-function expandQuery(q: string): string {
-  const ql = q.toLowerCase();
-  const syn: string[] = [];
-  if (/\bbjj\b/.test(ql) || /jiu[-\s]?jitsu/i.test(q)) syn.push("Brazilian Jiu-Jitsu", "BJJ", "martial arts");
-  if (/\bbelt\b/.test(ql) || /\brank\b/.test(ql) || /\blevel\b/.test(ql)) syn.push("rank", "belt", "purple belt");
-  return syn.length ? `${q} (${syn.join(", ")})` : q;
+/* ----------------------------- INTENT ROUTING ---------------------------- */
+type Topic = "pm" | "bjj" | "general";
+
+function detectTopic(qRaw: string): Topic {
+  const q = qRaw.toLowerCase();
+
+  const hasBjj =
+    /\bbjj\b/.test(q) ||
+    /jiu[-\s]?jitsu/.test(q) ||
+    /\bbelt\b/.test(q) ||
+    /\brank\b/.test(q) ||
+    /\bmartial\b/.test(q);
+
+  if (hasBjj) return "bjj";
+
+  const pmHints =
+    /\bproduct management\b/.test(q) ||
+    /\bproduct\b/.test(q) ||
+    /\bpm\b/.test(q) ||
+    /\bwork\b/.test(q) ||
+    /\bcareer\b/.test(q) ||
+    /\bportfolio\b/.test(q) ||
+    /\bproject/.test(q) ||
+    /\bstrategy\b/.test(q) ||
+    /\bprinciples?\b/.test(q) ||
+    /\bphilosophy\b/.test(q);
+
+  if (pmHints) return "pm";
+
+  return "general";
 }
-function keywordBoost(q: string, item: KBItem): number {
+
+function expandQuery(q: string): string {
+  const topic = detectTopic(q);
+  const extras: string[] = [];
+  if (topic === "bjj") extras.push("Brazilian Jiu-Jitsu", "BJJ", "martial arts", "belt", "rank");
+  if (topic === "pm") extras.push("product management", "product", "PM", "principles", "philosophy", "strategy");
+  return extras.length ? `${q} (${extras.join(", ")})` : q;
+}
+
+function topicPrior(item: KBItem, topic: Topic): number {
+  if (topic === "pm") {
+    if (item.id === "pm-philosophy") return 0.55; // make PM philosophy dominate
+    if (item.id === "bjj-overview") return -0.25; // de-prioritize BJJ when asking about philosophy
+  }
+  if (topic === "bjj") {
+    if (item.id === "bjj-overview") return 0.55;
+    if (item.id === "pm-philosophy") return -0.25;
+  }
+  return 0;
+}
+
+function lexicalBoost(q: string, item: KBItem): number {
   const t = (item.title + " " + item.text).toLowerCase();
   let sc = 0;
-  if (/\bbjj\b|\bjiu[-\s]?jitsu\b/i.test(q) && /bjj|jiu[-\s]?jitsu/.test(t)) sc += 0.2;
-  if (/\bbelt\b|\brank\b|\bpurple\b/i.test(q) && /(belt|rank|purple)/.test(t)) sc += 0.15;
+  if (/\bbjj\b|jiu[-\s]?jitsu|martial/.test(q) && /bjj|jiu[-\s]?jitsu|martial/.test(t)) sc += 0.2;
+  if (/\bphilosophy|principles|strategy/.test(q) && /(philosophy|principles|strategy)/.test(t)) sc += 0.15;
+  if (/\bcurrent|now|these days|focus|working on/.test(q) && /(2025|recent|focus)/.test(t)) sc += 0.1;
   return sc;
 }
+
 async function retrieveTopK(userQuery: string, k = 4) {
   const vecs = await getKBVecs();
+  const topic = detectTopic(userQuery);
   const qVec = (await embed([expandQuery(userQuery)]))[0];
-  const scored = vecs.map((v, i) => ({
-    item: kelKB[i],
-    score: cos(qVec, v) + keywordBoost(userQuery.toLowerCase(), kelKB[i]),
-  }));
+
+  const scored = vecs.map((v, i) => {
+    const item = kelKB[i];
+    const base = cos(qVec, v);
+    const score = base + lexicalBoost(userQuery.toLowerCase(), item) + topicPrior(item, topic);
+    return { item, score };
+  });
+
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, k).map(s => s.item);
 }
 
-/* ----------------------------- OPENAI CHAT ----------------------------- */
+/* ------------------------------- OPENAI ---------------------------------- */
 const SYSTEM = `You are Kel’s portfolio assistant.
 Only answer using the provided sources.
-Avoid saying "currently" unless a source explicitly marks it as current.
+Avoid saying "currently" unless a source explicitly marks a role as current.
 Be concise and friendly. If off-topic/hostile, redirect politely.`;
 
 async function chatCompletion(prompt: string) {
@@ -296,20 +346,23 @@ async function chatCompletion(prompt: string) {
 
 function buildPrompt(q: string, ctx: { title: string; url?: string; text: string }[]) {
   const bulleted = ctx
-    .map((c, i) => `#${i + 1} ${c.title}${c.url ? ` (${c.url})` : ""}\n${c.text.replace(/\s+/g, " ").trim()}`)
+    .map(
+      (c, i) =>
+        `#${i + 1} ${c.title}${c.url ? ` (${c.url})` : ""}\n${c.text.replace(/\s+/g, " ").trim()}`
+    )
     .join("\n\n");
   return `User question: ${q}
 
-Use ONLY the sources below when answering. Cite the specific sources you used as short bullets at the end.
+Use ONLY the sources below when answering. If the question is about "philosophy" without mentioning BJJ, prefer the Product Management Philosophy source. 
+Cite the specific sources you used as short bullets at the end.
 
 SOURCES:
 ${bulleted}
 `;
 }
 
-/* ----------------------------- HANDLER ----------------------------- */
+/* -------------------------------- HANDLER -------------------------------- */
 export default async function handler(req: Request) {
-  // 1) Preflight: reply with CORS headers
   if (req.method === "OPTIONS") {
     return withCors(null, { status: 204 }, req);
   }
@@ -329,9 +382,13 @@ export default async function handler(req: Request) {
 
     // Direct guard for BJJ belt
     const bjjDoc = top.find(d => /bjj|jiu[-\s]?jitsu/i.test(d.title + " " + d.text));
-    if (bjjDoc && /purple belt/i.test(bjjDoc.text)) {
+    if (bjjDoc && /purple belt/i.test(bjjDoc.text) && /\bbelt\b|\brank\b/i.test(q)) {
       const content = `Kel is a **purple belt** in Brazilian Jiu-Jitsu.\n\nSources:\n- ${bjjDoc.title}${bjjDoc.url ? ` (${bjjDoc.url})` : ""}`;
-      return withCors(JSON.stringify({ content, sources: [{ title: bjjDoc.title, url: bjjDoc.url }] }), { status: 200 }, req);
+      return withCors(
+        JSON.stringify({ content, sources: [{ title: bjjDoc.title, url: bjjDoc.url }] }),
+        { status: 200 },
+        req
+      );
     }
 
     // Grounded completion
