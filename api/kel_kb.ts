@@ -66,8 +66,8 @@ const kel_kb = [
   },
    {
     id: "bjj",
-    title: "Brazilian Jiu-Jitsu",
-    url: "https://kelwu.com/djing",
+    title: "Brazilian Jiu-Jitsu Experience",
+    url: "https://kelwu.com/bjj",
     content:
       "Trains in Brazilian Jiu-Jitsu. Currently a purple belt."
   },
