@@ -133,6 +133,32 @@ export const kelKB: KBItem[] = [
       "He collaborates with teams on strategy sprints, prototypes, and AI integrations."
   },
 
+  // ===== Resume Highlights =====
+{
+  id: "resume-socialnative",
+  title: "Social Native – Senior Product Manager",
+  text:
+    "Led product for creator onboarding and launched Creator Discovery from 0→1. " +
+    "Delivered DM for Rights, TikTok/Instagram paid metrics, and self-serve flows that improved transparency. " +
+    "Partnered with Data Science and Engineering to build AI-driven creator sourcing."
+},
+{
+  id: "resume-neptune",
+  title: "Neptune Retail Solutions – Product Manager",
+  text:
+    "Owned a 6-product digital promotions portfolio. " +
+    "Shipped CMS for enhanced brand pages that reduced manual work and scaled campaign delivery. " +
+    "Built rebate platform to improve redemption UX, raising rates above industry average."
+},
+{
+  id: "resume-tango",
+  title: "Tango Card – Product Manager",
+  text:
+    "Analyzed 700+ sales calls to identify customer journey friction. " +
+    "Drove roadmap changes to onboarding and reporting. " +
+    "Created insights presentations and taxonomy for leadership, aligning product with market needs."
+}
+
   // ===== Design System / Tech =====
   {
     id: "design-system",
