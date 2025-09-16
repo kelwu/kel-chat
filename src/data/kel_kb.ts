@@ -16,7 +16,7 @@ export const kelKB: KBItem[] = [
     id: "projects",
     title: "Projects",
     url: "/portfolio",
-    text: "Background Removal Tool (AI/ML + React+TS+HF), GardenGather Marketplace (community e-commerce), Neptune Retail Analytics (data viz, in progress)."
+    text: "GardenGather Marketplace (community e-commerce), Neptune Retail Analytics (data viz, in progress), AI Chatbot (RAG)"
   },
   {
     id: "beyond",
@@ -27,7 +27,7 @@ export const kelKB: KBItem[] = [
     id: "bjj",
     title: "BJJ",
     url: "/bjj",
-    text: "Brazilian Jiu-Jitsu: humility, problem-solving, perseverance, community."
+    text: "Brazilian Jiu-Jitsu: humility, problem-solving, perseverance, community. Kel is currently a purple belt."
   },
   {
     id: "dj",
