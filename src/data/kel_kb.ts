@@ -157,7 +157,7 @@ export const kelKB: KBItem[] = [
     "Analyzed 700+ sales calls to identify customer journey friction. " +
     "Drove roadmap changes to onboarding and reporting. " +
     "Created insights presentations and taxonomy for leadership, aligning product with market needs."
-}
+},
 
   // ===== Design System / Tech =====
   {
