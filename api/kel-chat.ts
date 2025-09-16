@@ -1,16 +1,45 @@
 // api/kel-chat.ts
-// Single-file Edge function: embeds retriever + KB to avoid import path issues.
+// Single-file Edge function with CORS + inlined retriever + KB.
 
 export const config = { runtime: "edge" };
-// TS shim for Edge
 declare const process: any;
 
+/* ------------------------------ CORS ---------------------------------- */
+const ALLOW_ORIGINS = [
+  "https://kelwu.com",
+  "https://www.kelwu.com",
+  "http://localhost:3000",
+  "http://localhost:5173"
+];
+
+function corsHeaders(req: Request) {
+  const origin = req.headers.get("origin") || "";
+  const allowed = ALLOW_ORIGINS.includes(origin) ? origin : ALLOW_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowed,
+    "Vary": "Origin",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "content-type",
+    "Access-Control-Max-Age": "86400",
+  };
+}
+
+function withCors(body: BodyInit | null, init: ResponseInit = {}, req?: Request) {
+  return new Response(body, {
+    ...init,
+    headers: {
+      ...(init.headers || {}),
+      ...corsHeaders(req || new Request("")),
+      "content-type": (init.headers as any)?.["content-type"] || "application/json",
+      "cache-control": "no-store",
+    },
+  });
+}
+
 /* ----------------------------- KNOWLEDGE BASE ----------------------------- */
-// Paste/keep your KB here. This includes your BJJ “purple belt” entry.
 type KBItem = { id: string; title: string; text: string; url?: string };
 
 const kelKB: KBItem[] = [
-  // ===== Overview & Current Focus (2025) =====
   {
     id: "summary-2025",
     title: "Professional Summary (2025)",
@@ -21,8 +50,6 @@ const kelKB: KBItem[] = [
       "In 2025 he is focused on building AI/LLM prototypes, retrieval-augmented assistants, and public content for 'Product by Kel'. " +
       "He blends product strategy, rapid prototyping, and hands-on implementation (React, TypeScript, Vercel Edge, Tailwind, shadcn/ui)."
   },
-
-  // ===== Site / Routes =====
   {
     id: "routes",
     title: "Site Routes",
@@ -30,8 +57,6 @@ const kelKB: KBItem[] = [
       "Site routes include: / (home), /product-management, /portfolio, /portfolio/:slug, /product-by-kel, /bjj, /djing. " +
       "The site is a React + Vite + Tailwind build with shadcn/ui, hosted as a personal portfolio and knowledge hub."
   },
-
-  // ===== PM Philosophy =====
   {
     id: "pm-philosophy",
     title: "Product Management Philosophy",
@@ -42,8 +67,6 @@ const kelKB: KBItem[] = [
       "Engineering (feasibility, system design, sprints), and Business (market analysis, GTM). " +
       "Typical lifecycle: Discovery → Definition → Development → Delivery."
   },
-
-  // ===== Current AI / RAG Project =====
   {
     id: "project-ai-rag",
     title: "AI Chatbot (RAG) for Portfolio",
@@ -54,8 +77,6 @@ const kelKB: KBItem[] = [
       "and a lightweight embeddable JS widget. Features: source chips with links, guardrails for off-topic/hostile prompts, " +
       "recency-aware filtering (e.g., post-2024 role), and a 'thinking' indicator for UX."
   },
-
-  // ===== GardenGather =====
   {
     id: "project-gardengather",
     title: "GardenGather Marketplace",
@@ -65,8 +86,6 @@ const kelKB: KBItem[] = [
       "Role: product strategy, UX, and prototype delivery. " +
       "Highlights: responsive gallery, listings, and guided tours; experimentation with local discovery and HCI patterns."
   },
-
-  // ===== Neptune Retail Analytics =====
   {
     id: "project-neptune",
     title: "Neptune Retail Analytics",
@@ -75,8 +94,6 @@ const kelKB: KBItem[] = [
       "Concept and implementation for a real-time analytics dashboard focused on retail campaigns and brand pages. " +
       "Emphasis on actionable insight layout, data visualization, and scalable component architecture."
   },
-
-  // ===== Product by Kel (Brand) =====
   {
     id: "brand-product-by-kel",
     title: "Product by Kel — Channel & Content",
@@ -86,8 +103,6 @@ const kelKB: KBItem[] = [
       "Publishes walkthroughs, prototypes, and practical PM content. " +
       "Common topics: RAG patterns, prompt design, rapid validation, and real-world product workflows."
   },
-
-  // ===== Bay Area Diners Club (Food) =====
   {
     id: "beyond-food",
     title: "Bay Area Diners Club",
@@ -96,8 +111,6 @@ const kelKB: KBItem[] = [
       "Food discovery content featuring local bites around the Bay Area. " +
       "Short-form reels and curated finds are highlighted in the 'Beyond Product' section of the portfolio."
   },
-
-  // ===== DJ Kelton Banks =====
   {
     id: "dj-kelton-banks",
     title: "DJ Kelton Banks — Music & Booking",
@@ -106,8 +119,6 @@ const kelKB: KBItem[] = [
       "DJ persona with mixes across hip hop, R&B, house, and disco. " +
       "The DJing page includes embedded mixes and a booking form with validation powered by React Hook Form + Zod."
   },
-
-  // ===== BJJ Experience =====
   {
     id: "bjj-overview",
     title: "Brazilian Jiu-Jitsu Experience",
@@ -118,8 +129,6 @@ const kelKB: KBItem[] = [
       "perseverance (progress over perfection), and community (helping teammates grow). " +
       "He draws parallels between BJJ and product: situational awareness, small iterative advantages, and calm under pressure."
   },
-
-  // ===== Skills / Toolbox =====
   {
     id: "skills",
     title: "Skills & Toolbox",
@@ -130,8 +139,6 @@ const kelKB: KBItem[] = [
       "APIs & Hosting: Vercel Edge Functions; Forms: React Hook Form + Zod; " +
       "Data viz and dashboard UX; Content creation and technical storytelling."
   },
-
-  // ===== Recent Work Status =====
   {
     id: "recent-status-2025",
     title: "Recent Work Status",
@@ -141,8 +148,6 @@ const kelKB: KBItem[] = [
       "RAG assistants, and educational content under 'Product by Kel'. " +
       "He collaborates with teams on strategy sprints, prototypes, and AI integrations."
   },
-
-  // ===== Resume Highlights =====
   {
     id: "resume-socialnative",
     title: "Social Native – Senior Product Manager",
@@ -167,8 +172,6 @@ const kelKB: KBItem[] = [
       "Drove roadmap changes to onboarding and reporting. " +
       "Created insights presentations and taxonomy for leadership, aligning product with market needs."
   },
-
-  // ===== Design System / Tech =====
   {
     id: "design-system",
     title: "Design System & Stack (Site)",
@@ -177,8 +180,6 @@ const kelKB: KBItem[] = [
       "Stack: React 18 + Vite, TypeScript, Tailwind CSS, shadcn/ui, Lucide icons, React Hook Form + Zod, " +
       "React Router v6. The site uses component-driven architecture and semantic HTML."
   },
-
-  // ===== Portfolio Page Summary =====
   {
     id: "portfolio-summary",
     title: "Portfolio Page",
@@ -187,8 +188,6 @@ const kelKB: KBItem[] = [
       "The portfolio showcases project cards with status (Active, Completed, In Progress), " +
       "tech stack tags (AI/ML, E-commerce, Analytics), and deep-dive project pages with specs, galleries, and learnings."
   },
-
-  // ===== Process & Ways of Working =====
   {
     id: "ways-of-working",
     title: "Ways of Working",
@@ -197,8 +196,6 @@ const kelKB: KBItem[] = [
       "prototype early and often; bias to instrumentation and iteration; " +
       "partner closely with design/engineering; prefer clear docs, demos, and decision logs."
   },
-
-  // ===== Safety & Guardrails (Chatbot) =====
   {
     id: "guardrails",
     title: "Chatbot Guardrails",
@@ -211,12 +208,10 @@ const kelKB: KBItem[] = [
 ];
 
 /* ----------------------------- VECTOR / EMBEDS ----------------------------- */
-// simple vector math
 const dot = (a: number[], b: number[]) => a.reduce((s, v, i) => s + v * b[i], 0);
 const mag = (a: number[]) => Math.sqrt(dot(a, a));
 const cos = (a: number[], b: number[]) => dot(a, b) / (mag(a) * mag(b) + 1e-9);
 
-// hash to bust cold-start cache when KB changes
 function hashKB(items: KBItem[]): string {
   const raw = items.map(it => it.id + "|" + it.title + "|" + it.text + "|" + (it.url ?? "")).join("∎");
   let h = 0;
@@ -224,7 +219,6 @@ function hashKB(items: KBItem[]): string {
   return String(h);
 }
 
-// OpenAI embeddings
 async function embed(texts: string[]): Promise<number[][]> {
   const r = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
@@ -232,19 +226,14 @@ async function embed(texts: string[]): Promise<number[][]> {
       "content-type": "application/json",
       authorization: `Bearer ${process.env.OPENAI_API_KEY ?? (globalThis as any)?.process?.env?.OPENAI_API_KEY}`,
     },
-    body: JSON.stringify({
-      input: texts,
-      model: "text-embedding-3-small",
-    }),
+    body: JSON.stringify({ input: texts, model: "text-embedding-3-small" }),
   });
   const j = await r.json();
   if (!j?.data) throw new Error("Embedding error");
   return j.data.map((d: any) => d.embedding as number[]);
 }
 
-// in-memory cache for this cold start
 declare global {
-  // eslint-disable-next-line no-var
   var __kel_embed_cache: { hash: string; vecs: number[][] } | undefined;
 }
 
@@ -320,8 +309,15 @@ ${bulleted}
 
 /* ----------------------------- HANDLER ----------------------------- */
 export default async function handler(req: Request) {
+  // 1) Preflight: reply with CORS headers
+  if (req.method === "OPTIONS") {
+    return withCors(null, { status: 204 }, req);
+  }
+
   try {
-    if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+    if (req.method !== "POST") {
+      return withCors(JSON.stringify({ error: "Method Not Allowed" }), { status: 405 }, req);
+    }
 
     const body = await req.json().catch(() => ({} as any));
     const messages = (body?.messages as { role: "user" | "assistant"; content: string }[]) || [];
@@ -331,14 +327,11 @@ export default async function handler(req: Request) {
     // Retrieve
     const top = await retrieveTopK(q, 4);
 
-    // Direct guard for the BJJ belt
+    // Direct guard for BJJ belt
     const bjjDoc = top.find(d => /bjj|jiu[-\s]?jitsu/i.test(d.title + " " + d.text));
     if (bjjDoc && /purple belt/i.test(bjjDoc.text)) {
       const content = `Kel is a **purple belt** in Brazilian Jiu-Jitsu.\n\nSources:\n- ${bjjDoc.title}${bjjDoc.url ? ` (${bjjDoc.url})` : ""}`;
-      return new Response(JSON.stringify({ content, sources: [{ title: bjjDoc.title, url: bjjDoc.url }] }), {
-        status: 200,
-        headers: { "content-type": "application/json", "cache-control": "no-store" },
-      });
+      return withCors(JSON.stringify({ content, sources: [{ title: bjjDoc.title, url: bjjDoc.url }] }), { status: 200 }, req);
     }
 
     // Grounded completion
@@ -346,14 +339,8 @@ export default async function handler(req: Request) {
     const answer = await chatCompletion(buildPrompt(q, ctx));
     const chips = top.map(s => ({ title: s.title, url: s.url }));
 
-    return new Response(JSON.stringify({ content: answer, sources: chips }), {
-      status: 200,
-      headers: { "content-type": "application/json", "cache-control": "no-store" },
-    });
+    return withCors(JSON.stringify({ content: answer, sources: chips }), { status: 200 }, req);
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || "Server error" }), {
-      status: 500,
-      headers: { "content-type": "application/json", "cache-control": "no-store" },
-    });
+    return withCors(JSON.stringify({ error: e?.message || "Server error" }), { status: 500 }, req);
   }
 }
