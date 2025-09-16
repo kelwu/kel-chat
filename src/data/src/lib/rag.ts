@@ -1,16 +1,18 @@
 // src/lib/rag.ts
-import { kelKB } from "../data/kel_kb";
+// ESM imports with .js for Edge
+import { kelKB } from "../data/kel_kb.js";
 
-// -------------------- Types --------------------
 export type KBItem = { id: string; title: string; text: string; url?: string };
-type Embd = { id: string; vec: number[]; item: KBItem };
 
-// -------------------- Small utils --------------------
+// avoid TS error in Edge typings; runtime is fine
+declare const process: any;
+
+// ---------- vector utils ----------
 const dot = (a: number[], b: number[]) => a.reduce((s, v, i) => s + v * b[i], 0);
 const mag = (a: number[]) => Math.sqrt(dot(a, a));
 const cos = (a: number[], b: number[]) => dot(a, b) / (mag(a) * mag(b) + 1e-9);
 
-// Create a stable hash of the KB so we can bust any cold-start cache when content changes
+// Stable hash to bust cold-start cache when KB changes
 function hashKB(items: KBItem[]): string {
   const raw = items.map(it => it.id + "|" + it.title + "|" + it.text + "|" + (it.url ?? "")).join("∎");
   let h = 0;
@@ -18,14 +20,13 @@ function hashKB(items: KBItem[]): string {
   return String(h);
 }
 
-// -------------------- Embeddings --------------------
-// We use a tiny on-the-fly embedding via OpenAI (kept simple). You can swap for your model.
+// ---------- embeddings ----------
 async function embed(texts: string[]): Promise<number[][]> {
   const r = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${process.env.OPENAI_API_KEY!}`,
+      authorization: `Bearer ${process.env.OPENAI_API_KEY ?? process?.env?.OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
       input: texts,
@@ -37,7 +38,9 @@ async function embed(texts: string[]): Promise<number[][]> {
   return j.data.map((d: any) => d.embedding as number[]);
 }
 
-// Cache in memory per cold start, but with a content hash
+type Embd = { id: string; vec: number[]; item: KBItem };
+
+// global cold-start cache
 declare global {
   // eslint-disable-next-line no-var
   var __kel_cache: { hash: string; embds: Embd[] } | undefined;
@@ -53,20 +56,16 @@ async function getKBEmbeddings(): Promise<Embd[]> {
   return embds;
 }
 
-// -------------------- Retriever --------------------
+// ---------- retrieval with synonym expansion + keyword boost ----------
 function expandQuery(q: string): string {
   const ql = q.toLowerCase();
   const synonyms: string[] = [];
-
-  // BJJ ↔ Brazilian Jiu-Jitsu
   if (/\bbjj\b/.test(ql) || /jiu[-\s]?jitsu/i.test(q)) {
     synonyms.push("Brazilian Jiu-Jitsu", "BJJ", "martial arts");
   }
-  // belt/rank
   if (/\bbelt\b/.test(ql) || /\brank\b/.test(ql) || /\blevel\b/.test(ql)) {
     synonyms.push("rank", "belt", "purple belt");
   }
-
   return synonyms.length ? `${q} (${synonyms.join(", ")})` : q;
 }
 
@@ -80,7 +79,6 @@ function keywordBoost(q: string, item: KBItem): number {
 
 export async function retrieveTopK(userQuery: string, k = 4) {
   const embds = await getKBEmbeddings();
-
   const qExpanded = expandQuery(userQuery);
   const [qVec] = await embed([qExpanded]);
 
