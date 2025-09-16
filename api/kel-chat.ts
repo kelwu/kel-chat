@@ -1,5 +1,5 @@
 // api/kel-chat.ts
-// Edge function with CORS, topic-aware retrieval (PM vs BJJ), and direct BJJ belt guard.
+// Edge function with CORS, topic-aware retrieval (PM vs BJJ), LinkedIn/resume guard, and BJJ belt guard.
 
 export const config = { runtime: "edge" };
 declare const process: any;
@@ -40,6 +40,16 @@ function withCors(body: BodyInit | null, init: ResponseInit = {}, req?: Request)
 type KBItem = { id: string; title: string; text: string; url?: string };
 
 const kelKB: KBItem[] = [
+  // ——— LinkedIn (new) ———
+  {
+    id: "linkedin",
+    title: "Kel Wu — LinkedIn",
+    url: "https://www.linkedin.com/in/kelwu/",
+    text:
+      "Kel Wu’s public professional profile with experience, roles, recommendations, and contact. " +
+      "Preferred source for resume-style information and work history.",
+  },
+
   {
     id: "summary-2025",
     title: "Professional Summary (2025)",
@@ -249,14 +259,8 @@ type Topic = "pm" | "bjj" | "general";
 
 function detectTopic(qRaw: string): Topic {
   const q = qRaw.toLowerCase();
-
   const hasBjj =
-    /\bbjj\b/.test(q) ||
-    /jiu[-\s]?jitsu/.test(q) ||
-    /\bbelt\b/.test(q) ||
-    /\brank\b/.test(q) ||
-    /\bmartial\b/.test(q);
-
+    /\bbjj\b/.test(q) || /jiu[-\s]?jitsu/.test(q) || /\bbelt\b/.test(q) || /\brank\b/.test(q) || /\bmartial\b/.test(q);
   if (hasBjj) return "bjj";
 
   const pmHints =
@@ -269,10 +273,10 @@ function detectTopic(qRaw: string): Topic {
     /\bproject/.test(q) ||
     /\bstrategy\b/.test(q) ||
     /\bprinciples?\b/.test(q) ||
-    /\bphilosophy\b/.test(q);
+    /\bphilosophy\b/.test(q) ||
+    /\blinkedin|resume|cv|profile/.test(q); // treat LinkedIn queries as PM-ish
 
   if (pmHints) return "pm";
-
   return "general";
 }
 
@@ -280,18 +284,19 @@ function expandQuery(q: string): string {
   const topic = detectTopic(q);
   const extras: string[] = [];
   if (topic === "bjj") extras.push("Brazilian Jiu-Jitsu", "BJJ", "martial arts", "belt", "rank");
-  if (topic === "pm") extras.push("product management", "product", "PM", "principles", "philosophy", "strategy");
+  if (topic === "pm") extras.push("product management", "product", "PM", "principles", "philosophy", "strategy", "LinkedIn", "resume");
   return extras.length ? `${q} (${extras.join(", ")})` : q;
 }
 
 function topicPrior(item: KBItem, topic: Topic): number {
   if (topic === "pm") {
-    if (item.id === "pm-philosophy") return 0.55; // make PM philosophy dominate
-    if (item.id === "bjj-overview") return -0.25; // de-prioritize BJJ when asking about philosophy
+    if (item.id === "linkedin") return 0.65;          // LinkedIn dominates for resume/profile queries
+    if (item.id === "pm-philosophy") return 0.55;      // PM philosophy dominates for “philosophy”
+    if (item.id === "bjj-overview") return -0.25;
   }
   if (topic === "bjj") {
     if (item.id === "bjj-overview") return 0.55;
-    if (item.id === "pm-philosophy") return -0.25;
+    if (item.id === "pm-philosophy" || item.id === "linkedin") return -0.25;
   }
   return 0;
 }
@@ -302,6 +307,7 @@ function lexicalBoost(q: string, item: KBItem): number {
   if (/\bbjj\b|jiu[-\s]?jitsu|martial/.test(q) && /bjj|jiu[-\s]?jitsu|martial/.test(t)) sc += 0.2;
   if (/\bphilosophy|principles|strategy/.test(q) && /(philosophy|principles|strategy)/.test(t)) sc += 0.15;
   if (/\bcurrent|now|these days|focus|working on/.test(q) && /(2025|recent|focus)/.test(t)) sc += 0.1;
+  if (/\blinkedin|resume|cv|profile/.test(q) && /linkedin/.test(t)) sc += 0.6; // strong nudge for LinkedIn
   return sc;
 }
 
@@ -309,14 +315,12 @@ async function retrieveTopK(userQuery: string, k = 4) {
   const vecs = await getKBVecs();
   const topic = detectTopic(userQuery);
   const qVec = (await embed([expandQuery(userQuery)]))[0];
-
   const scored = vecs.map((v, i) => {
     const item = kelKB[i];
     const base = cos(qVec, v);
     const score = base + lexicalBoost(userQuery.toLowerCase(), item) + topicPrior(item, topic);
     return { item, score };
   });
-
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, k).map(s => s.item);
 }
@@ -353,7 +357,8 @@ function buildPrompt(q: string, ctx: { title: string; url?: string; text: string
     .join("\n\n");
   return `User question: ${q}
 
-Use ONLY the sources below when answering. If the question is about "philosophy" without mentioning BJJ, prefer the Product Management Philosophy source. 
+Use ONLY the sources below when answering. If the question mentions LinkedIn, resume, CV, or profile, prefer the LinkedIn source.
+If the question is about "philosophy" without BJJ terms, prefer the Product Management Philosophy source.
 Cite the specific sources you used as short bullets at the end.
 
 SOURCES:
@@ -377,10 +382,21 @@ export default async function handler(req: Request) {
     const last = messages.length ? messages[messages.length - 1] : undefined;
     const q = (last?.content || "").trim();
 
-    // Retrieve
-    const top = await retrieveTopK(q, 4);
+    // Direct guard: LinkedIn / resume / CV / profile
+    if (/\blinkedin|resume|cv|profile\b/i.test(q)) {
+      const li = kelKB.find(d => d.id === "linkedin")!;
+      const content =
+        `You can find Kel’s professional profile on LinkedIn here: ${li.url}\n\n` +
+        `Sources:\n- ${li.title} (${li.url})`;
+      return withCors(
+        JSON.stringify({ content, sources: [{ title: li.title, url: li.url }] }),
+        { status: 200 },
+        req
+      );
+    }
 
-    // Direct guard for BJJ belt
+    // Retrieve & belt guard
+    const top = await retrieveTopK(q, 4);
     const bjjDoc = top.find(d => /bjj|jiu[-\s]?jitsu/i.test(d.title + " " + d.text));
     if (bjjDoc && /purple belt/i.test(bjjDoc.text) && /\bbelt\b|\brank\b/i.test(q)) {
       const content = `Kel is a **purple belt** in Brazilian Jiu-Jitsu.\n\nSources:\n- ${bjjDoc.title}${bjjDoc.url ? ` (${bjjDoc.url})` : ""}`;
@@ -395,7 +411,6 @@ export default async function handler(req: Request) {
     const ctx = top.map(t => ({ title: t.title, url: t.url, text: t.text }));
     const answer = await chatCompletion(buildPrompt(q, ctx));
     const chips = top.map(s => ({ title: s.title, url: s.url }));
-
     return withCors(JSON.stringify({ content: answer, sources: chips }), { status: 200 }, req);
   } catch (e: any) {
     return withCors(JSON.stringify({ error: e?.message || "Server error" }), { status: 500 }, req);
