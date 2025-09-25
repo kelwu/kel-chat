@@ -7,10 +7,14 @@ export const kelKB: KBItem[] = [
     title: "Professional Summary (2025)",
     url: "/",
     text:
-      "Kel Wu is a product leader and AI experimentalist with 6+ years of experience across SaaS, digital marketing, " +
+      "Kel Wu is a product leader and AI experimentalist with 8+ years of experience across SaaS, digital marketing, " +
       "e-commerce, and the creator economy. In December 2024, he wrapped up his role at Social Native. " +
-      "In 2025 he is focused on building AI/LLM prototypes, retrieval-augmented assistants, and public content for 'Product by Kel'. " +
-      "He blends product strategy, rapid prototyping, and hands-on implementation (React, TypeScript, Vercel Edge, Tailwind, shadcn/ui)."
+      "In June 2025, he was contracted as a Data Analyst for Tango Card where Synthesized AI-driven insights across Gong, FullStory, Mixpanel,+
+      "Qualtrics and Ada chat logs, then used Lovable.dev to prototype UX enhancements—transforming raw customer data into visualized product +
+      "recommendations for the rewards platform." +
+      "In 2025 he is focused on building AI/LLM prototypes, retrieval-augmented assistants, and public content for 'Product by Kel' channels on. " +
+      "YouTube, Instagram and TikTok."
+      "He blends product strategy, rapid prototyping, and hands-on implementation (Lovable, Vercel, Zapier, n8n, Creatomate, Elevenlabs)."
   },
 
   // ===== Site / Routes =====
